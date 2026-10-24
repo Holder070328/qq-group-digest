@@ -36,7 +36,11 @@ def sync():
             src = os.path.join(dp, f)
             dst = os.path.join(REPO, "digests", os.path.relpath(src, DIGESTS))
             os.makedirs(os.path.dirname(dst), exist_ok=True)
-            shutil.copy2(src, dst)
+            # 统一写成 LF，避免 Windows 的 CRLF 让 git 每天报"有改动"
+            with open(src, "rb") as fh:
+                data = fh.read().replace(b"\r\n", b"\n")
+            with open(dst, "wb") as fh:
+                fh.write(data)
             n += 1
     return n
 
