@@ -16,9 +16,6 @@ import subprocess
 import sys
 
 from paths import WORKSPACE as WS
-from paths import GROUP_NAME as REAL_GROUP_NAME
-
-PORTABLE_NAME = "某高校飞跃群"
 
 REPO = os.path.join(WS, "qq-digest")
 DIGESTS = os.path.join(WS, "qq", "digests")
@@ -39,13 +36,7 @@ def sync():
             src = os.path.join(dp, f)
             dst = os.path.join(REPO, "digests", os.path.relpath(src, DIGESTS))
             os.makedirs(os.path.dirname(dst), exist_ok=True)
-            # 同步时就把真实群名换成通用名，避免公开版泄露群名
-            with open(src, encoding="utf-8") as fh:
-                text = fh.read()
-            if REAL_GROUP_NAME and REAL_GROUP_NAME != PORTABLE_NAME:
-                text = text.replace(REAL_GROUP_NAME, PORTABLE_NAME)
-            with open(dst, "w", encoding="utf-8") as fh:
-                fh.write(text)
+            shutil.copy2(src, dst)
             n += 1
     return n
 

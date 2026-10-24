@@ -25,7 +25,7 @@ ARCHIVE = os.path.join(QQDIR, "archive")
 
 NAPCAT_HOME = os.environ.get("NAPCAT_HOME") or os.path.join(HOME, "napcat", "shell")
 
-GROUP_ID = int(os.environ.get("QQ_GROUP_ID") or 0)
-GROUP_NAME = os.environ.get("QQ_GROUP_NAME") or "某高校飞跃群"
+GROUP_ID = int(os.environ.get("QQ_GROUP_ID") or 1035480173)
+GROUP_NAME = os.environ.get("QQ_GROUP_NAME") or "USTC飞跃群2027"
 
 REPO = os.path.join(WORKSPACE, "qq-digest")
