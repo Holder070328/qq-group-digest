@@ -1,0 +1,18 @@
+# 凭据与本地数据——绝不入库
+**/napcat_credentials.json
+**/webui.json
+**/config/onebot11_*.json
+*.db
+*.db-journal
+*.sqlite3
+heartbeat.json
+alert_state.json
+*.log
+archive/
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# 脱敏发布版另存，不入主库
+digests-public/
