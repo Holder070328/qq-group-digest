@@ -41,7 +41,8 @@ NOTE_SPLIT = "\n---\n\n"
 
 
 def sup(n: int) -> str:
-    return "".join(SUP[int(d)] for d in str(n))
+    """角标形式：英文半角中括号。"""
+    return f"[{n}]"
 
 
 def load_terms():
@@ -61,7 +62,8 @@ def strip_notes(text):
     marker = NOTE_SPLIT + NOTE_HEAD
     if marker in text:
         text = text.split(marker)[0].rstrip() + "\n"
-    # 2) 去掉上标字符
+    # 2) 去掉角标：[n] 形式，以及兼容老文件里的上标字符
+    text = re.sub(r"\[\d{1,2}\]", "", text)
     text = re.sub(f"[{SUP}]+", "", text)
     return text
 
