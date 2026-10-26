@@ -17,6 +17,8 @@ from paths import QQDIR
 DB = os.path.join(QQDIR, "messages.db")
 STATE = os.path.join(QQDIR, "alert_state.json")
 HB = os.path.join(QQDIR, "heartbeat.json")
+GLOSSARY = os.path.join(QQDIR, "glossary.json")
+MAX_GLOSS = 3          # 一次最多附 3 条名词解释
 
 PATTERNS = [
     ("招生", r"招生|招聘|招人|PhD|phd|博士|博后|postdoc|postdoc|position|opening|vacanc|RA|全奖|助理教授|课题组"),
@@ -35,6 +37,29 @@ def load(path, default):
         return json.load(open(path, encoding="utf-8"))
     except Exception:
         return default
+
+
+def explain_terms(texts, limit=MAX_GLOSS):
+    """从文本里找术语，返回 [(名词, 解释)]，最多 limit 条。"""
+    try:
+        terms = json.load(open(GLOSSARY, encoding="utf-8")).get("terms", [])
+    except Exception:
+        return []
+    blob = "\n".join(t or "" for t in texts)
+    out, seen = [], set()
+    for t in terms:
+        name = t.get("name")
+        if not name or name in seen:
+            continue
+        try:
+            if re.search(t.get("pat", ""), blob, re.I):
+                out.append((name, t.get("say", "")))
+                seen.add(name)
+        except re.error:
+            continue
+        if len(out) >= limit:
+            break
+    return out
 
 
 def main():
@@ -67,6 +92,13 @@ def main():
             print(f"· 【{label}】{t}  —{who[:14]} {datetime.fromtimestamp(ts):%m-%d %H:%M}")
         if len(hits) > MAX_LINES:
             print(f"（另有 {len(hits) - MAX_LINES} 条同类，周一汇总里一起说）")
+
+        # 附上专业名词解释（只解释真正出现的词）
+        tips = explain_terms([h[2] for h in hits[-MAX_LINES:]])
+        if tips:
+            print("\n📖 名词小抄")
+            for name, say in tips:
+                print(f"· {name}：{say}")
 
     # ---------- 二、掉线告警 ----------
     hb = load(HB, {})

@@ -72,6 +72,10 @@ def main():
     if not a.no_push:
         p = run(["git", "push"])
         out = (p.stdout or p.stderr).strip()
+        # 上游没设置时（重建分支后常见）自动补一次 --set-upstream
+        if p.returncode != 0 and ("set-upstream" in out or "no upstream" in out.lower()):
+            p = run(["git", "push", "--set-upstream", "origin", "main"])
+            out = (p.stdout or p.stderr).strip()
         print(out[:400])
         if p.returncode != 0:
             print("推送失败——检查 remote、代理与凭据")
