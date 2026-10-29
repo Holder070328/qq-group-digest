@@ -41,8 +41,8 @@ NOTE_SPLIT = "\n---\n\n"
 
 
 def sup(n: int) -> str:
-    """角标形式：英文半角中括号。"""
-    return f"[{n}]"
+    """角标形式：Unicode 上标数字（逐位转换，10 → ¹⁰）。"""
+    return "".join(SUP[int(d)] for d in str(n))
 
 
 def load_terms():
