@@ -23,7 +23,7 @@ QQDIR = r"D:\Hermes\profiles\muelsyse-us\workspace\qq"
 CACHE = os.path.join(QQDIR, "link_cache.json")
 UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 "
       "(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1")
-TIMEOUT = 20
+TIMEOUT = 12
 TTL = 7 * 86400
 MAX_LEN = 1500
 
