@@ -96,6 +96,8 @@ def annotate_footnote(text, terms):
             line_start = body.rfind("\n", 0, start) + 1
             if body[line_start:].startswith("# "):
                 continue
+            if body[line_start:].lstrip().startswith(">"):
+                continue
             if SKIP_HEADING in body[:start][-400:]:
                 continue
             if canon not in cands or start < cands[canon][0]:

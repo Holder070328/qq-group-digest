@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-"""qq_sync_repo.py — 把摘要同步进 git 仓库，并提交/推送。
+"""qq_sync_repo.py — 把摘要与即时提醒同步进 git 仓库，并提交/推送。
 
-只同步 `digests/`（内容）；`collector/` 里是「可移植版」代码，
+只同步 `digests/` 与 `alerts/`（内容）；`collector/` 里是「可移植版」代码，
 **不会被正在运行的版本覆盖**，以免把本机路径、真实群号等带回仓库。
 
 用法:
@@ -11,7 +11,6 @@
 """
 import argparse
 import os
-import shutil
 import subprocess
 import sys
 
@@ -19,6 +18,10 @@ from paths import WORKSPACE as WS
 
 REPO = os.path.join(WS, "qq-digest")
 DIGESTS = os.path.join(WS, "qq", "digests")
+ALERTS = os.path.join(WS, "qq", "alerts")
+
+CRLF = b"\r\n"
+LF = b"\n"
 
 
 def run(args, **kw):
@@ -26,23 +29,29 @@ def run(args, **kw):
                           encoding="utf-8", errors="ignore", **kw)
 
 
-def sync():
-    """只同步摘要；返回已复制的文件数。"""
+def _copy_md(src_root, dst_root):
+    """把一个目录树里的 .md 复制过去（统一 LF）。返回文件数。"""
     n = 0
-    for dp, _, fn in os.walk(DIGESTS):
+    for dp, _, fn in os.walk(src_root):
         for f in fn:
             if not f.endswith(".md"):
                 continue
             src = os.path.join(dp, f)
-            dst = os.path.join(REPO, "digests", os.path.relpath(src, DIGESTS))
+            dst = os.path.join(dst_root, os.path.relpath(src, src_root))
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             # 统一写成 LF，避免 Windows 的 CRLF 让 git 每天报"有改动"
             with open(src, "rb") as fh:
-                data = fh.read().replace(b"\r\n", b"\n")
+                data = fh.read().replace(CRLF, LF)
             with open(dst, "wb") as fh:
                 fh.write(data)
             n += 1
     return n
+
+
+def sync():
+    """同步摘要与即时提醒；返回已复制的文件数。"""
+    return (_copy_md(DIGESTS, os.path.join(REPO, "digests"))
+            + _copy_md(ALERTS, os.path.join(REPO, "alerts")))
 
 
 def main():
@@ -59,12 +68,12 @@ def main():
     if not st.stdout.strip():
         return 0          # 没有变化，完全静默
 
-    print(f"同步: {n} 个摘要")
+    print(f"同步: {n} 个文件")
     if a.dry_run:
         return 0
 
     run(["git", "add", "-A"])
-    r = run(["git", "commit", "-m", "chore: 同步摘要"])
+    r = run(["git", "commit", "-m", "chore: 同步摘要与即时提醒"])
     print((r.stdout or r.stderr).strip()[:400])
     if r.returncode != 0:
         return 1

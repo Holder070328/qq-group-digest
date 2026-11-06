@@ -131,8 +131,23 @@ def main():
     urls, files = links_and_files(rows)
     if urls or files:
         print(f"\n链接与群文件（去重后）：")
-        for u, (ts, who) in list(urls.items())[:12]:
+        try:
+            import qq_links
+            _lk = True
+        except Exception:
+            _lk = False
+        for _i, (u, (ts, who)) in enumerate(list(urls.items())[:12]):
             print(f"  🔗 {u[:110]}  —{who[:12]} {datetime.fromtimestamp(ts):%m-%d %H:%M}")
+            if _lk and _i < 5:              # 只抓前 5 个，控制耗时
+                try:
+                    _rec = qq_links.fetch(u)
+                    if _rec.get("ok"):
+                        _txt = re.sub(r"[—\-_=‧·]{3,}", " ", _rec.get("text", ""))
+                        print(f"      ↳ 链接正文：《{_rec.get('title','')}》{re.sub(r'\s+', ' ', _txt)[:220]}")
+                    else:
+                        print(f"      ↳ 链接正文读取失败：{_rec.get('note','')}")
+                except Exception:
+                    pass
         for f, (ts, who) in list(files.items())[:12]:
             print(f"  📎 {f[:80]}  —{who[:12]} {datetime.fromtimestamp(ts):%m-%d %H:%M}")
 
