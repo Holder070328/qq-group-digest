@@ -168,10 +168,21 @@ class Handler(BaseHTTPRequestHandler):
         self._ok()          # 立刻回 200，避免 NapCat 等待超时
 
 
+def _startup_backfill():
+    """启动后补最近 2 小时，兜住「重启窗口里 NapCat 上报失败」丢掉的那几条。"""
+    time.sleep(2)
+    try:
+        backfill(2)
+    except Exception as e:
+        print("startup backfill skipped:", type(e).__name__, e, flush=True)
+
+
 def serve():
     print(f"collector listening on 127.0.0.1:{PORT}, group whitelist = {GROUP_ID}", flush=True)
     heartbeat()          # 启动即写一次心跳，便于判断采集器是否刚重启过
-    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    threading.Thread(target=_startup_backfill, daemon=True).start()
+    srv.serve_forever()
 
 
 def api(path):

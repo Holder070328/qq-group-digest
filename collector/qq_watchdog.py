@@ -1,8 +1,14 @@
 #!/usr/bin/env python
 """qq_watchdog.py — 看门狗：每 5 分钟检查采集链路，断了就自动拉起来。
 
+分级处理（2026-11 起）：
+  ① 只有采集器（5700）掉线、NapCat（3000）还活着
+     → 只重启采集器（计划任务 HermesQQCollector），**不碰 QQ**
+       因为杀 QQ 会触发重新登录、历史消息重放，代价大得多
+  ② NapCat 也掉线 → 走整链重启（计划任务 HermesQQBoot）
+
 健康时**不输出任何内容**（cron 侧静默）。
-修复成功 → 输出一句「已自动恢复」；修复失败/连续失败 → 输出告警并停止重试，避免反复杀掉用户的 QQ。
+修复成功 → 输出一句「已自动恢复」；修复失败/连续失败 → 输出告警并停止重试。
 
 状态: qq/watchdog_state.json
 """
@@ -14,14 +20,15 @@ import sys
 import time
 import urllib.request
 
-from paths import WORKSPACE as WS
+WS = r"D:\Hermes\profiles\muelsyse-us\workspace"
 PY = sys.executable
 BOOT = os.path.join(WS, "tools", "qq_boot.py")
 CRED = os.path.join(WS, "qq", "napcat_credentials.json")
 STATE = os.path.join(WS, "qq", "watchdog_state.json")
-HB = os.path.join(WS, "qq", "heartbeat.json")
 
 MAX_ATTEMPTS_PER_HOUR = 3
+TASK_ALL = "HermesQQBoot"        # NapCat + 采集器
+TASK_COL = "HermesQQCollector"   # 只启采集器
 
 
 def port_open(p):
@@ -53,8 +60,28 @@ def save_state(s):
     json.dump(s, open(STATE, "w", encoding="utf-8"), ensure_ascii=False)
 
 
+def run_task(name):
+    try:
+        r = subprocess.run(["schtasks", "/run", "/tn", name],
+                           capture_output=True, text=True, timeout=60)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def wait_port(port, tries=12, gap=2):
+    for _ in range(tries):
+        time.sleep(gap)
+        if port_open(port):
+            return True
+    return False
+
+
 def main():
-    if port_open(3000) and api_ok() and port_open(5700):
+    p3000 = port_open(3000)
+    api = api_ok() if p3000 else False
+    p5700 = port_open(5700)
+    if p3000 and api and p5700:
         return 0                                  # 健康，静默
 
     now = int(time.time())
@@ -69,26 +96,30 @@ def main():
             save_state(st)
         return 0
 
-    st["attempts"].append(now)
-    save_state(st)
-
-    # 优先用「任务计划」拉起：进程树归 Task Scheduler 管，不会随本进程退出而被回收
-    started = False
-    try:
-        r = subprocess.run(["schtasks", "/run", "/tn", "HermesQQBoot"],
-                           capture_output=True, text=True, timeout=60)
-        started = r.returncode == 0
-    except Exception:
-        started = False
-    if not started:
-        subprocess.run([PY, BOOT], capture_output=True, text=True, timeout=300)
-
-    # 给 NapCat 一点时间起来
-    for _ in range(20):
-        time.sleep(3)
-        if port_open(3000) and api_ok() and port_open(5700):
-            print("🔧 采集链路断过，看门狗已自动重启恢复（NapCat + 采集器）。")
+    # ---------- ① 只掉采集器：温和处理，不动 QQ ----------
+    if p3000 and api and not p5700:
+        st["attempts"].append(now)
+        save_state(st)
+        if run_task(TASK_COL) and wait_port(5700):
+            print("🔧 采集器掉线，已单独重启（QQ 没动，不用重新登录）。")
             return 0
+        print("⚠️ 采集器单独重启没成功，改走整链重启…")
+
+    # ---------- ② 整链重启 ----------
+    if now not in st["attempts"]:
+        st["attempts"].append(now)
+        save_state(st)
+
+    started = run_task(TASK_ALL)
+    if not started:
+        try:
+            subprocess.run([PY, BOOT], capture_output=True, text=True, timeout=300)
+        except Exception:
+            pass
+
+    if wait_port(3000, tries=20, gap=3) and wait_port(5700, tries=1, gap=0):
+        print("🔧 采集链路断过，看门狗已自动重启恢复（NapCat + 采集器）。")
+        return 0
 
     print("⚠️ 采集链路断了，看门狗重启失败。可能需要扫码登录，或 QQ 被限制了。")
     return 0

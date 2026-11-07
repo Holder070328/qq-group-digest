@@ -119,7 +119,7 @@ def write_alert_md(when, items):
              f"- {len(items)} 条命中 / {len(who)} 人 · 覆盖 {span}"]
     for label, ts, poster, text in items[:10]:
         text = re.sub(r"\s+", " ", text or "").strip()
-        lines.append(f"- 【{label}】{datetime.fromtimestamp(ts):%m-%d} {text[:70]} —{poster[:16]}")
+        lines.append(f"- 【{label}】{datetime.fromtimestamp(ts):%m-%d} {text[:70]} —{poster}")
     if len(items) > 10:
         lines.append(f"- 另有 {len(items) - 10} 条同类，见当日周报")
     lines += ["", "> 标准：招生/DDL > 流程通知 > 经验帖 > 求问 > 闲聊"]
