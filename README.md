@@ -83,6 +83,7 @@ git clone https://github.com/Holder070328/qq-group-digest.git
 - **不可以**：用于商业目的；也不能用额外条款限制别人做上面允许的事
 - 例外：**群友发言的著作权归发言者本人**，本仓库只做整理与摘要；转载含个人隐私的求助信息前请自行判断
 - 中文许可摘要：<https://creativecommons.org/licenses/by-nc/4.0/deed.zh>
+- 说明：GitHub 页面右上角的许可证标签可能显示为 *Other*——那是因为 GitHub 的自动识别库没收录 CC BY-NC，**以 `LICENSE` 全文与本节说明为准**
 
 ## 说明
 
