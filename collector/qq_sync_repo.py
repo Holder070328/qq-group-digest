@@ -32,7 +32,8 @@ def run(args, **kw):
 def _copy_md(src_root, dst_root):
     """把一个目录树里的 .md 复制过去（统一 LF）。返回文件数。"""
     n = 0
-    for dp, _, fn in os.walk(src_root):
+    for dp, dn, fn in os.walk(src_root):
+        dn[:] = [d for d in dn if not d.startswith("_")]   # 跳过 _备份 之类
         for f in fn:
             if not f.endswith(".md"):
                 continue
