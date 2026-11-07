@@ -91,3 +91,4 @@ git clone https://github.com/Holder070328/qq-group-digest.git
 - 内容由群聊自动整理，**仅供群友参考**，不是官方信息，也不构成申请建议
 - 昵称按群名片原样保留（`23-数-陈睿涵` 这样），便于回群里对上是哪位同学
 - 涉及个人隐私的信息请勿二次传播
+- 有任何意见或建议欢迎联系本人：QQ：1027704677 email:houdeli123@mail.ustc.edu.dn
