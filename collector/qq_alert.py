@@ -8,9 +8,11 @@
   ① 文字本身命中关键词
   ② 消息里带的链接（小红书 / 公众号 / 网页）——先抓正文，再按正文判断值不值得提醒
 
-命中时做两件事：
-  · 打印 Telegram 提醒（原有格式，末尾加「🔗 链接内容」）
-  · 写一份 md 归档到 qq/alerts/<年>/<月>/<YYYY-MM-DD HHMM> · 高价值提醒.md
+命中时做三件事：
+  · 打印 Telegram 提醒（含「🔗 链接里有内容」，末尾附与 md 相同的「📖 注释」）
+  · 写一份 md 归档到 qq/alerts/<年>/<月>/<覆盖起点 YYYY-MM-DD HHMM> · 高价值提醒.md
+    文件名用**这批消息里最早那条的时间**，方便回群里对照
+  · 没命中任何术语时，注释段写一句说明，保持格式统一
 
 状态存在 qq/alert_state.json：记住已提醒到的消息时间，避免重复。
 """
@@ -29,7 +31,6 @@ STATE = os.path.join(QQDIR, "alert_state.json")
 HB = os.path.join(QQDIR, "heartbeat.json")
 GLOSSARY = os.path.join(QQDIR, "glossary.json")
 ALERTDIR = os.path.join(QQDIR, "alerts")
-MAX_GLOSS = 3          # 一次最多附 3 条名词解释
 MAX_LINKS = 5          # 一批最多抓 5 个链接
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -45,6 +46,7 @@ PATTERNS = [
 MAX_LINES = 4
 OFFLINE_HOURS = 14          # 心跳超过这么久没动静，提醒一次
 QUIET_START, QUIET_END = 0, 8   # 这个时段不报掉线（夜里没人发消息很正常）
+NO_TERM_NOTE = "（本批没有需要解释的术语）"
 
 
 def load(path, default):
@@ -52,29 +54,6 @@ def load(path, default):
         return json.load(open(path, encoding="utf-8"))
     except Exception:
         return default
-
-
-def explain_terms(texts, limit=MAX_GLOSS):
-    """从文本里找术语，返回 [(名词, 解释)]，最多 limit 条。"""
-    try:
-        terms = json.load(open(GLOSSARY, encoding="utf-8")).get("terms", [])
-    except Exception:
-        return []
-    blob = "\n".join(t or "" for t in texts)
-    out, seen = [], set()
-    for t in terms:
-        name = t.get("name")
-        if not name or name in seen:
-            continue
-        try:
-            if re.search(t.get("pat", ""), blob, re.I):
-                out.append((name, t.get("say", "")))
-                seen.add(name)
-        except re.error:
-            continue
-        if len(out) >= limit:
-            break
-    return out
 
 
 def klass(text):
@@ -104,19 +83,16 @@ def collect_links(rows):
     return out
 
 
-def write_alert_md(when, items):
-    """把这次提醒整理成 md（格式与摘要一致：要点带 MM-DD，文末 📖 注释）。"""
-    if not items:
-        return None
-    folder = os.path.join(ALERTDIR, f"{when:%Y}", f"{when:%m}")
-    os.makedirs(folder, exist_ok=True)
-    path = os.path.join(folder, f"{when:%Y-%m-%d %H%M} · 高价值提醒.md")
-
+def build_body(when, items):
+    """生成 md 正文（含 📖 注释）。返回 (body, 注释条数)。"""
     first, last = min(i[1] for i in items), max(i[1] for i in items)
-    span = f"{datetime.fromtimestamp(first):%m-%d %H:%M} ~ {datetime.fromtimestamp(last):%m-%d %H:%M}"
+    first_dt, last_dt = datetime.fromtimestamp(first), datetime.fromtimestamp(last)
     who = {i[2] for i in items}
-    lines = [f"# {when:%Y-%m-%d %H:%M} · 高价值提醒", "",
-             f"- {len(items)} 条命中 / {len(who)} 人 · 覆盖 {span}"]
+    span = f"{first_dt:%m-%d %H:%M} ~ {last_dt:%m-%d %H:%M}"
+
+    lines = [f"# {first_dt:%Y-%m-%d %H:%M} · 高价值提醒", "",
+             f"- {len(items)} 条命中 / {len(who)} 人 · 覆盖 {span}",
+             f"- 由 {when:%m-%d %H:%M} 这轮提醒整理（文件名取覆盖起点，方便回群里对照）"]
     for label, ts, poster, text in items[:10]:
         text = re.sub(r"\s+", " ", text or "").strip()
         lines.append(f"- 【{label}】{datetime.fromtimestamp(ts):%m-%d} {text[:70]} —{poster}")
@@ -124,13 +100,36 @@ def write_alert_md(when, items):
         lines.append(f"- 另有 {len(items) - 10} 条同类，见当日周报")
     lines += ["", "> 标准：招生/DDL > 流程通知 > 经验帖 > 求问 > 闲聊"]
     body = "\n".join(lines) + "\n"
+
+    n = 0
     try:
         import qq_annotate
-        body, _ = qq_annotate.annotate_footnote(body, qq_annotate.load_terms())
+        body, n = qq_annotate.annotate_footnote(body, qq_annotate.load_terms())
     except Exception:
         pass
+    if "📖 注释" not in body:                       # 没词命中也要有这一段，格式才统一
+        body = body.rstrip("\n") + f"\n---\n\n📖 注释\n{NO_TERM_NOTE}\n"
+    return body, n
+
+
+def notes_block(body):
+    """从 md 正文里取出注释段，供聊天消息复用。"""
+    if "📖 注释" not in body:
+        return NO_TERM_NOTE
+    return body.split("📖 注释", 1)[1].strip()
+
+
+def write_alert_md(when, items):
+    """写 md；文件名与目录都用「覆盖起点」。返回 (path, body)。"""
+    if not items:
+        return None, ""
+    body, _ = build_body(when, items)
+    first = datetime.fromtimestamp(min(i[1] for i in items))
+    folder = os.path.join(ALERTDIR, f"{first:%Y}", f"{first:%m}")
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, f"{first:%Y-%m-%d %H%M} · 高价值提醒.md")
     open(path, "w", encoding="utf-8", newline="\n").write(body)
-    return path
+    return path, body
 
 
 def main():
@@ -162,7 +161,6 @@ def main():
             link_hits.append((ts, who, rec, label))
 
     if hits or link_hits:
-        merged = sorted({(h[0], h[1], h[2][:80], h[3]) for h in hits})
         if hits:
             print("博士，群里刚冒出来这几条——")
             for ts, who, text, label in hits[-MAX_LINES:]:
@@ -182,15 +180,7 @@ def main():
                 print(f"· 【{label}·{rec.get('source','链接')}】{brief}"
                       f"  —{who[:14]} {datetime.fromtimestamp(ts):%m-%d %H:%M}")
 
-        # 附上专业名词解释（只解释真正出现的词）
-        tips = explain_terms([h[2] for h in hits[-MAX_LINES:]] +
-                             [r.get("title", "") + r.get("text", "") for (_t, _w, r, _l) in link_hits[:MAX_LINES]])
-        if tips:
-            print("\n📖 名词小抄")
-            for name, say in tips:
-                print(f"· {name}：{say}")
-
-        # ---------- 归档成 md ----------
+        # ---------- 归档成 md（文件名取覆盖起点）----------
         items = []
         for ts, who, text, label in hits:
             items.append((label, ts, who, text))
@@ -202,8 +192,16 @@ def main():
                 snippet = rec.get("title", "")
             items.append((f"链接·{rec.get('source','网页')}", ts, who, snippet))
         items.sort(key=lambda x: x[1])
+
         try:
-            path = write_alert_md(datetime.now(), items)
+            path, body = write_alert_md(datetime.now(), items)
+            # 聊天里附上与 md 完全一致的注释
+            if body:
+                print("\n📖 注释")
+                for ln in notes_block(body).split("\n"):
+                    ln = ln.strip()
+                    if ln:
+                        print(f"· {ln}" if not ln.startswith(("¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹", "⁰", "（")) else f"· {ln}")
             if path:
                 try:
                     shown = os.path.relpath(path, QQBASE)

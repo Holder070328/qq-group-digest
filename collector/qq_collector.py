@@ -32,6 +32,16 @@ GROUP_ID = _group_id()          # 白名单群，硬编码兜底
 PORT = 5700
 _lock = threading.Lock()
 
+# 计划任务用 pythonw 启动时没有控制台（sys.stdout 为 None），
+# 兜底把输出写进 collector.log，避免 print 直接把进程带崩。
+if sys.stdout is None or getattr(sys.stdout, "write", None) is None:
+    try:
+        sys.stdout = open(os.path.join(os.path.dirname(DB), "collector.log"),
+                          "a", encoding="utf-8", buffering=1)
+        sys.stderr = sys.stdout
+    except Exception:
+        pass
+
 SEG_LABEL = {
     "image": lambda d: "[图片]",
     "face": lambda d: "[表情]",

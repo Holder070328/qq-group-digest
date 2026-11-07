@@ -76,7 +76,7 @@ def main():
         if a.dry:
             print(f"[dry] {when:%Y-%m-%d %H:%M}  {len(items)} 条  ← {os.path.basename(f)}")
             continue
-        path = qq_alert.write_alert_md(when, items)
+        path, _body = qq_alert.write_alert_md(when, items)
         n += 1
         print(f"{len(items):2d} 条 → {path}")
     print(f"共 {n if not a.dry else len(parsed)} 份")
