@@ -48,6 +48,26 @@ OFFLINE_HOURS = 14          # 心跳超过这么久没动静，提醒一次
 QUIET_START, QUIET_END = 0, 8   # 这个时段不报掉线（夜里没人发消息很正常）
 NO_TERM_NOTE = "（本批没有需要解释的术语）"
 
+TAG_NAME = {"招生": "招生", "截止": "DDL", "结果": "offer", "机会": "暑研实习", "签证": "签证"}
+TITLE_KEYWORDS = ["10043", "212f", "212g", "美签", "面签", "F1", "I-20", "DS-160", "暑研",
+                  "西湖", "NUS", "港理工", "Madison", "田纳西", "全奖", "PhD", "交换"]
+
+
+def title_hint(items):
+    """抓一个「重点」短语，让标题像周报那样一眼能看出这条在说什么。"""
+    labels = []
+    for it in items:
+        if it[0] not in labels:
+            labels.append(it[0])
+    blob = " ".join((i[3] or "") for i in items)
+    heads = [TAG_NAME.get(l, l) for l in labels[:2]]
+    kws = [k for k in TITLE_KEYWORDS if k.lower() in blob.lower()]
+    # 已经在类别名里的词不再重复（否则会出现「暑研实习：暑研」这种）
+    kws = [k for k in dict.fromkeys(kws) if not any(k in h for h in heads)][:2]
+    head = "、".join(heads) or "群内动态"
+    tail = "、".join(kws)[:12]
+    return (head + "：" + tail) if tail else head
+
 
 def load(path, default):
     try:
@@ -90,9 +110,9 @@ def build_body(when, items):
     who = {i[2] for i in items}
     span = f"{first_dt:%m-%d %H:%M} ~ {last_dt:%m-%d %H:%M}"
 
-    lines = [f"# {first_dt:%Y-%m-%d %H:%M} · 高价值提醒", "",
-             f"- {len(items)} 条命中 / {len(who)} 人 · 覆盖 {span}",
-             f"- 由 {when:%m-%d %H:%M} 这轮提醒整理（文件名取覆盖起点，方便回群里对照）"]
+    lines = [f"# {first_dt:%Y-%m-%d %H:%M} ~ {last_dt:%H:%M} · {title_hint(items)}", "",
+             f"- {len(items)} 条 / {len(who)} 人 · 覆盖 {span}",
+             f"- 由 {when:%m-%d %H:%M} 这轮即时提醒整理（文件名取覆盖起点，方便回群里对照）"]
     for label, ts, poster, text in items[:10]:
         text = re.sub(r"\s+", " ", text or "").strip()
         lines.append(f"- 【{label}】{datetime.fromtimestamp(ts):%m-%d} {text[:70]} —{poster}")
