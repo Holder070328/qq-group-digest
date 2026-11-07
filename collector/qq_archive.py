@@ -13,7 +13,7 @@ import re
 import sys
 from datetime import date
 
-from paths import DIGESTS as ROOT
+ROOT = r"D:\Hermes\profiles\muelsyse-us\workspace\qq-view\digests"
 
 
 def files():

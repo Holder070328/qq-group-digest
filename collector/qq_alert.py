@@ -30,7 +30,7 @@ DB = os.path.join(QQDIR, "messages.db")
 STATE = os.path.join(QQDIR, "alert_state.json")
 HB = os.path.join(QQDIR, "heartbeat.json")
 GLOSSARY = os.path.join(QQDIR, "glossary.json")
-ALERTDIR = os.path.join(QQDIR, "alerts")
+ALERTDIR = os.path.join(QQBASE, "qq-view", "alerts")
 MAX_LINKS = 5          # 一批最多抓 5 个链接
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -139,6 +139,41 @@ def notes_block(body):
     return body.split("📖 注释", 1)[1].strip()
 
 
+INDEX = os.path.join(ALERTDIR, "INDEX.md")
+
+
+def rebuild_index():
+    """从 alerts 目录重建 INDEX.md（一行一次，最新在最上面）。幂等。"""
+    import glob as _glob
+    rows = []
+    for fp in _glob.glob(os.path.join(ALERTDIR, "*", "*", "*.md")):
+        try:
+            lines = open(fp, encoding="utf-8").read().split("\n")
+            head = lines[0].lstrip("# ").strip()
+            n = 0
+            for ln in lines:
+                m = re.match(r"- (\d+) 条", ln)
+                if m:
+                    n = int(m.group(1))
+                    break
+            dt_part, _, hint = head.partition(" · ")
+            m2 = re.match(r"(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})", dt_part)
+            label = f"{m2.group(1)[5:]} {m2.group(2)}" if m2 else dt_part
+            rows.append((dt_part, label, n, hint.strip() or "—"))
+        except Exception:
+            continue
+    rows.sort(key=lambda r: r[0], reverse=True)
+    out = ["# USTC飞跃群2027 · 高价值提醒索引", "",
+           "一行一次，最新在最上面。文件名用**这批消息的覆盖起点**（`YYYY-MM-DD HHMM`），方便回群里对照。",
+           "只在命中「招生 / 截止 / 结果 / 机会 / 签证」时生成，空回合不留档。", "",
+           "| 覆盖起点 | 条数 | 一句话 |", "|---|---|---|"]
+    for _raw, label, n, hint in rows:
+        out.append(f"| {label} | {n} | {hint} |")
+    out += ["", f"共 {len(rows)} 份。格式与生成规则见 [README.md](README.md)。", ""]
+    os.makedirs(ALERTDIR, exist_ok=True)
+    open(INDEX, "w", encoding="utf-8", newline="\n").write("\n".join(out))
+
+
 def write_alert_md(when, items):
     """写 md；文件名与目录都用「覆盖起点」。返回 (path, body)。"""
     if not items:
@@ -149,6 +184,10 @@ def write_alert_md(when, items):
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, f"{first:%Y-%m-%d %H%M} · 高价值提醒.md")
     open(path, "w", encoding="utf-8", newline="\n").write(body)
+    try:
+        rebuild_index()
+    except Exception:
+        pass
     return path, body
 
 

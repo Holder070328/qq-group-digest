@@ -17,8 +17,8 @@ import sys
 from paths import WORKSPACE as WS
 
 REPO = os.path.join(WS, "qq-digest")
-DIGESTS = os.path.join(WS, "qq", "digests")
-ALERTS = os.path.join(WS, "qq", "alerts")
+DIGESTS = os.path.join(WS, "qq-view", "digests")
+ALERTS = os.path.join(WS, "qq-view", "alerts")
 
 CRLF = b"\r\n"
 LF = b"\n"
