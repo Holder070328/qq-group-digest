@@ -114,3 +114,13 @@ alerts/<年>/<月>/<YYYY-MM-DD HHMM> · 高价值提醒.md
 - **消息里的链接也算消息来源**：小红书（xhslink 短链）、微信公众号、普通网页会先抓正文，
   再按正文内容判断值不值得提醒；链接正文同时进入周报材料（`qq_digest.py` 输出里的「链接正文」）
 - 补历史：`python qq_alert_backfill.py --last 2`（从 cron 输出重建 md，幂等）
+
+## 关于 `digests/` 与 `alerts/`
+
+这两个目录是**目录联接（junction）**，指向 `..\qq-view\digests` 与 `..\qq-view\alerts`——
+也就是说，本仓库的工作区里看到的档案，就是本机唯一的那一份，没有额外副本。
+
+- 同步脚本（`qq_sync_repo.py`）仍然会跑一遍「复制并统一换行为 LF」，但因为源和目标是同一份，等于原地规范化，不会产生重复文件
+- `git clone` 到别的机器时，联接会被还原成普通目录，内容照样完整
+- 在本仓库里 `git clean -fdx` 或重新 clone 覆盖会把联接换成真实目录，请避免
+
